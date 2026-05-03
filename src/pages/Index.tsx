@@ -117,7 +117,7 @@ export default function Index() {
   const { user, loading, login, logout } = useSteamAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reportForm, setReportForm] = useState({ profileUrl: "", category: "cs2", type: "", desc: "", proof: "" });
+  const [reportForm, setReportForm] = useState({ profileUrl: "", category: "cs2", type: "", desc: "" });
   const [targetProfile, setTargetProfile] = useState<{ steam_id: string; username: string; avatar_url: string; profile_url: string } | null>(null);
   const [resolveState, setResolveState] = useState<"idle" | "loading" | "error">("idle");
   const [resolveError, setResolveError] = useState("");
@@ -168,13 +168,12 @@ export default function Index() {
           violation_category: reportForm.category,
           violation_type: reportForm.type,
           description: reportForm.desc,
-          proof_url: reportForm.proof,
         }),
       });
       const data = await res.json();
       if (!res.ok) { setSubmitError(data.error || "Ошибка"); setSubmitState("error"); return; }
       setSubmitState("success");
-      setReportForm({ profileUrl: "", category: "cs2", type: "", desc: "", proof: "" });
+      setReportForm({ profileUrl: "", category: "cs2", type: "", desc: "" });
       setTargetProfile(null);
     } catch {
       setSubmitError("Не удалось отправить жалобу");
@@ -484,18 +483,7 @@ export default function Index() {
                   )}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
-                  Ссылка на доказательства
-                </label>
-                <input
-                  type="text"
-                  placeholder="YouTube / Imgur / HLAE демо"
-                  value={reportForm.proof}
-                  onChange={(e) => setReportForm({ ...reportForm, proof: e.target.value })}
-                  className="w-full bg-[var(--bg-dark)] border border-[var(--border-subtle)] text-white px-4 py-3 text-sm focus:outline-none focus:border-[var(--red)] transition-colors"
-                />
-              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
                   Описание нарушения
