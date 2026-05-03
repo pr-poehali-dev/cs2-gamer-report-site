@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "GET /me without session — returns null user",
+      "method": "GET",
+      "path": "/?action=me",
+      "expectedStatus": 401,
+      "expectedBody": {"user": null},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET /login — redirect to Steam",
+      "method": "GET",
+      "path": "/?action=login",
+      "expectedStatus": 302,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

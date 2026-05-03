@@ -1,5 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+
+const STEAM_AUTH_URL = "https://functions.poehali.dev/7a21934d-53eb-4ae2-ad48-e4f3191dd4fe";
+
+type SteamUser = {
+  steam_id: string;
+  username: string;
+  avatar_url: string;
+  profile_url: string;
+} | null;
+
+function useSteamAuth() {
+  const [user, setUser] = useState<SteamUser>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMe = useCallback(async (sid: string) => {
+    try {
+      const res = await fetch(`${STEAM_AUTH_URL}?action=me`, {
+        headers: { "X-Session-Id": sid },
+      });
+      const data = await res.json();
+      setUser(data.user ?? null);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionFromUrl = params.get("session");
+    if (sessionFromUrl) {
+      localStorage.setItem("cs2_session", sessionFromUrl);
+      params.delete("session");
+      const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+      window.history.replaceState({}, "", newUrl);
+      fetchMe(sessionFromUrl);
+    } else {
+      const stored = localStorage.getItem("cs2_session");
+      if (stored) fetchMe(stored);
+      else setLoading(false);
+    }
+  }, [fetchMe]);
+
+  const login = () => {
+    window.location.href = `${STEAM_AUTH_URL}?action=login`;
+  };
+
+  const logout = async () => {
+    const sid = localStorage.getItem("cs2_session");
+    if (sid) {
+      await fetch(`${STEAM_AUTH_URL}?action=logout`, {
+        method: "POST",
+        headers: { "X-Session-Id": sid },
+      }).catch(() => {});
+      localStorage.removeItem("cs2_session");
+    }
+    setUser(null);
+  };
+
+  return { user, loading, login, logout };
+}
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/f5a08a12-bc9f-4d49-b5a3-16f2cece57ca/files/9e7f6556-44a1-4f43-a240-cda852b49bb2.jpg";
 
@@ -52,6 +114,7 @@ const STATUS_STAGES = [
 ];
 
 export default function Index() {
+  const { user, loading, login, logout } = useSteamAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportForm, setReportForm] = useState({ steamId: "", nick: "", type: "", desc: "", proof: "" });
@@ -96,10 +159,22 @@ export default function Index() {
             ))}
           </div>
 
-          <button className="btn-red hidden lg:flex items-center gap-2 px-4 py-2 text-xs">
-            <Icon name="LogIn" size={14} />
-            Войти через Steam
-          </button>
+          {loading ? (
+            <div className="hidden lg:block w-8 h-8 border border-[var(--border-subtle)] border-t-[var(--red)] rounded-full animate-spin" />
+          ) : user ? (
+            <div className="hidden lg:flex items-center gap-2">
+              <img src={user.avatar_url} alt={user.username} className="w-7 h-7 object-cover border border-[rgba(224,48,48,0.4)]" />
+              <span className="text-xs text-white font-oswald font-semibold">{user.username}</span>
+              <button onClick={logout} className="text-[var(--text-muted)] hover:text-[var(--red)] transition-colors ml-1">
+                <Icon name="LogOut" size={14} />
+              </button>
+            </div>
+          ) : (
+            <button onClick={login} className="btn-red hidden lg:flex items-center gap-2 px-4 py-2 text-xs">
+              <Icon name="LogIn" size={14} />
+              Войти через Steam
+            </button>
+          )}
 
           <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden text-[var(--text-muted)] hover:text-white">
             <Icon name={menuOpen ? "X" : "Menu"} size={22} />
@@ -118,10 +193,22 @@ export default function Index() {
               </button>
             ))}
             <div className="p-4">
-              <button className="btn-red w-full py-2.5 text-sm flex items-center justify-center gap-2">
-                <Icon name="LogIn" size={15} />
-                Войти через Steam
-              </button>
+              {user ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src={user.avatar_url} alt={user.username} className="w-8 h-8 border border-[rgba(224,48,48,0.4)]" />
+                    <span className="text-sm font-oswald font-semibold text-white">{user.username}</span>
+                  </div>
+                  <button onClick={logout} className="text-xs text-[var(--text-muted)] hover:text-[var(--red)] flex items-center gap-1">
+                    <Icon name="LogOut" size={13} /> Выйти
+                  </button>
+                </div>
+              ) : (
+                <button onClick={login} className="btn-red w-full py-2.5 text-sm flex items-center justify-center gap-2">
+                  <Icon name="LogIn" size={15} />
+                  Войти через Steam
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -189,18 +276,33 @@ export default function Index() {
           </div>
 
           <div className="bg-cs-card border border-[var(--border-subtle)] p-6 md:p-8">
-            <div className="flex items-center gap-4 p-4 mb-6 border border-[rgba(224,48,48,0.3)] bg-[rgba(224,48,48,0.05)]">
-              <Icon name="ShieldCheck" size={24} className="text-[var(--red)] shrink-0" />
-              <div>
-                <div className="font-oswald font-semibold text-sm tracking-wide text-white">
-                  ТРЕБУЕТСЯ STEAM-ВЕРИФИКАЦИЯ
+            {user ? (
+              <div className="flex items-center gap-4 p-4 mb-6 border border-[rgba(48,200,48,0.3)] bg-[rgba(48,200,48,0.05)]">
+                <img src={user.avatar_url} alt={user.username} className="w-10 h-10 border border-[rgba(48,200,48,0.4)] shrink-0" />
+                <div>
+                  <div className="font-oswald font-semibold text-sm tracking-wide text-white">
+                    АВТОРИЗОВАН КАК {user.username.toUpperCase()}
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)] mt-0.5 font-mono">{user.steam_id}</div>
                 </div>
-                <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Войдите через Steam чтобы подтвердить личность перед отправкой жалобы
-                </div>
+                <button onClick={logout} className="ml-auto text-xs text-[var(--text-muted)] hover:text-[var(--red)] flex items-center gap-1 transition-colors shrink-0">
+                  <Icon name="LogOut" size={13} /> Выйти
+                </button>
               </div>
-              <button className="btn-red ml-auto px-4 py-2 text-xs shrink-0">Войти</button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-4 p-4 mb-6 border border-[rgba(224,48,48,0.3)] bg-[rgba(224,48,48,0.05)]">
+                <Icon name="ShieldCheck" size={24} className="text-[var(--red)] shrink-0" />
+                <div>
+                  <div className="font-oswald font-semibold text-sm tracking-wide text-white">
+                    ТРЕБУЕТСЯ STEAM-ВЕРИФИКАЦИЯ
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                    Войдите через Steam чтобы подтвердить личность перед отправкой жалобы
+                  </div>
+                </div>
+                <button onClick={login} className="btn-red ml-auto px-4 py-2 text-xs shrink-0">Войти</button>
+              </div>
+            )}
 
             <div className="grid md:grid-cols-2 gap-5">
               <div>
@@ -278,10 +380,17 @@ export default function Index() {
                 <Icon name="Lock" size={13} />
                 Данные защищены. Анонимная отправка невозможна.
               </div>
-              <button className="btn-red px-8 py-3 text-sm flex items-center gap-2">
-                <Icon name="Send" size={15} />
-                Отправить жалобу
-              </button>
+              {user ? (
+                <button className="btn-red px-8 py-3 text-sm flex items-center gap-2">
+                  <Icon name="Send" size={15} />
+                  Отправить жалобу
+                </button>
+              ) : (
+                <button onClick={login} className="btn-red px-8 py-3 text-sm flex items-center gap-2 opacity-80">
+                  <Icon name="LogIn" size={15} />
+                  Войдите чтобы отправить
+                </button>
+              )}
             </div>
           </div>
         </div>
