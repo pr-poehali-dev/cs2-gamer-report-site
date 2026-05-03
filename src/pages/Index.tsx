@@ -117,7 +117,7 @@ export default function Index() {
   const { user, loading, login, logout } = useSteamAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reportForm, setReportForm] = useState({ profileUrl: "", type: "", desc: "", proof: "" });
+  const [reportForm, setReportForm] = useState({ profileUrl: "", category: "cs2", type: "", desc: "", proof: "" });
   const [targetProfile, setTargetProfile] = useState<{ steam_id: string; username: string; avatar_url: string; profile_url: string } | null>(null);
   const [resolveState, setResolveState] = useState<"idle" | "loading" | "error">("idle");
   const [resolveError, setResolveError] = useState("");
@@ -165,6 +165,7 @@ export default function Index() {
           target_username: targetProfile.username,
           target_avatar_url: targetProfile.avatar_url,
           target_profile_url: targetProfile.profile_url,
+          violation_category: reportForm.category,
           violation_type: reportForm.type,
           description: reportForm.desc,
           proof_url: reportForm.proof,
@@ -173,7 +174,7 @@ export default function Index() {
       const data = await res.json();
       if (!res.ok) { setSubmitError(data.error || "Ошибка"); setSubmitState("error"); return; }
       setSubmitState("success");
-      setReportForm({ profileUrl: "", type: "", desc: "", proof: "" });
+      setReportForm({ profileUrl: "", category: "cs2", type: "", desc: "", proof: "" });
       setTargetProfile(null);
     } catch {
       setSubmitError("Не удалось отправить жалобу");
@@ -401,7 +402,33 @@ export default function Index() {
                   </div>
                 )}
               </div>
-              <div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
+                  Платформа нарушения
+                </label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {[
+                    { id: "cs2",   icon: "Crosshair",   label: "CS2",   sub: "Читы, гриферство, токсик" },
+                    { id: "steam", icon: "Shield",       label: "Steam", sub: "Скам, харассмент, мошенничество" },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setReportForm({ ...reportForm, category: cat.id, type: "" })}
+                      className={`flex items-center gap-3 p-3 border text-left transition-all
+                        ${reportForm.category === cat.id
+                          ? "border-[var(--red)] bg-[rgba(224,48,48,0.08)] text-white"
+                          : "border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[rgba(224,48,48,0.4)]"
+                        }`}
+                    >
+                      <Icon name={cat.icon} size={18} className={reportForm.category === cat.id ? "text-[var(--red)]" : ""} />
+                      <div>
+                        <div className="text-sm font-oswald font-semibold tracking-wide">{cat.label}</div>
+                        <div className="text-xs opacity-60">{cat.sub}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
                 <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
                   Тип нарушения
                 </label>
@@ -411,14 +438,50 @@ export default function Index() {
                   className="w-full bg-[var(--bg-dark)] border border-[var(--border-subtle)] text-white px-4 py-3 text-sm focus:outline-none focus:border-[var(--red)] transition-colors appearance-none"
                 >
                   <option value="">— Выберите тип —</option>
-                  <option>Aimbот</option>
-                  <option>Wallhack</option>
-                  <option>Triggerbot</option>
-                  <option>Speedhack</option>
-                  <option>No-recoil</option>
-                  <option>Bhop-скрипт</option>
-                  <option>Радар-хак</option>
-                  <option>Другое</option>
+                  {reportForm.category === "cs2" ? (
+                    <>
+                      <optgroup label="Читерство">
+                        <option>Aimbот</option>
+                        <option>Wallhack / ESP</option>
+                        <option>Triggerbot</option>
+                        <option>Speedhack</option>
+                        <option>No-recoil скрипт</option>
+                        <option>Bhop-скрипт</option>
+                        <option>Радар-хак</option>
+                        <option>Spinbot</option>
+                        <option>Другой чит</option>
+                      </optgroup>
+                      <optgroup label="Поведение в игре">
+                        <option>Гриферство / Teamkill</option>
+                        <option>AFK / Саботаж</option>
+                        <option>Бустинг / Смурфинг</option>
+                        <option>Оскорбления в чате</option>
+                        <option>Голосовой спам</option>
+                        <option>Намеренный слив</option>
+                      </optgroup>
+                    </>
+                  ) : (
+                    <>
+                      <optgroup label="Мошенничество">
+                        <option>Скам при обмене</option>
+                        <option>Фишинг-ссылки</option>
+                        <option>Кража аккаунта</option>
+                        <option>Мошенничество с торговлей</option>
+                        <option>Поддельный трейд-оффер</option>
+                      </optgroup>
+                      <optgroup label="Общение">
+                        <option>Угрозы / Харассмент</option>
+                        <option>Спам в личных сообщениях</option>
+                        <option>Дискриминация / Ненависть</option>
+                        <option>Сталкинг</option>
+                      </optgroup>
+                      <optgroup label="Контент">
+                        <option>Неприемлемый аватар / ник</option>
+                        <option>Спам в группах / форумах</option>
+                        <option>Фейковые отзывы</option>
+                      </optgroup>
+                    </>
+                  )}
                 </select>
               </div>
               <div>

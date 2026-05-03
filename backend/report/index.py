@@ -147,6 +147,7 @@ def handler(event: dict, context) -> dict:
         target_username = body.get("target_username", "").strip()
         target_avatar_url = body.get("target_avatar_url", "").strip()
         target_profile_url = body.get("target_profile_url", "").strip()
+        violation_category = body.get("violation_category", "cs2").strip()
         violation_type = body.get("violation_type", "").strip()
         description = body.get("description", "").strip()
         proof_url = body.get("proof_url", "").strip()
@@ -171,8 +172,8 @@ def handler(event: dict, context) -> dict:
             """
             INSERT INTO reports
               (reporter_steam_id, reporter_username, target_steam_id, target_username,
-               target_avatar_url, target_profile_url, violation_type, description, proof_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               target_avatar_url, target_profile_url, violation_category, violation_type, description, proof_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -182,6 +183,7 @@ def handler(event: dict, context) -> dict:
                 target_username,
                 target_avatar_url,
                 target_profile_url,
+                violation_category,
                 violation_type,
                 description,
                 proof_url,

@@ -1,0 +1,1 @@
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS violation_category VARCHAR(32) DEFAULT 'cs2';
