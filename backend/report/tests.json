@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "resolve without url param",
+      "method": "GET",
+      "path": "/?action=resolve",
+      "expectedStatus": 400,
+      "bodyMatcher": "none"
+    },
+    {
+      "name": "submit without session",
+      "method": "POST",
+      "path": "/?action=submit",
+      "body": {"target_steam_id": "123", "violation_type": "Aimbot"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

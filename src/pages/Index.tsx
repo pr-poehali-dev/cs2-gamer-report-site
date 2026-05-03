@@ -117,9 +117,69 @@ export default function Index() {
   const { user, loading, login, logout } = useSteamAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reportForm, setReportForm] = useState({ steamId: "", nick: "", type: "", desc: "", proof: "" });
+  const [reportForm, setReportForm] = useState({ profileUrl: "", type: "", desc: "", proof: "" });
+  const [targetProfile, setTargetProfile] = useState<{ steam_id: string; username: string; avatar_url: string; profile_url: string } | null>(null);
+  const [resolveState, setResolveState] = useState<"idle" | "loading" | "error">("idle");
+  const [resolveError, setResolveError] = useState("");
+  const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState("");
   const [statusId, setStatusId] = useState("");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+  const REPORT_URL = "https://functions.poehali.dev/32f5b69d-00df-4836-a6b7-f303418be40d";
+
+  const resolveProfile = useCallback(async (url: string) => {
+    if (!url.trim()) { setTargetProfile(null); setResolveState("idle"); return; }
+    setResolveState("loading");
+    setTargetProfile(null);
+    setResolveError("");
+    try {
+      const res = await fetch(`${REPORT_URL}?action=resolve&url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      if (!res.ok) { setResolveError(data.error || "Ошибка"); setResolveState("error"); return; }
+      setTargetProfile(data);
+      setResolveState("idle");
+    } catch {
+      setResolveError("Не удалось связаться с сервером");
+      setResolveState("error");
+    }
+  }, []);
+
+  // Debounce resolve
+  useEffect(() => {
+    const t = setTimeout(() => resolveProfile(reportForm.profileUrl), 700);
+    return () => clearTimeout(t);
+  }, [reportForm.profileUrl, resolveProfile]);
+
+  const submitReport = async () => {
+    if (!user || !targetProfile || !reportForm.type) return;
+    setSubmitState("loading");
+    setSubmitError("");
+    try {
+      const sid = localStorage.getItem("cs2_session") || "";
+      const res = await fetch(`${REPORT_URL}?action=submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Session-Id": sid },
+        body: JSON.stringify({
+          target_steam_id: targetProfile.steam_id,
+          target_username: targetProfile.username,
+          target_avatar_url: targetProfile.avatar_url,
+          target_profile_url: targetProfile.profile_url,
+          violation_type: reportForm.type,
+          description: reportForm.desc,
+          proof_url: reportForm.proof,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSubmitError(data.error || "Ошибка"); setSubmitState("error"); return; }
+      setSubmitState("success");
+      setReportForm({ profileUrl: "", type: "", desc: "", proof: "" });
+      setTargetProfile(null);
+    } catch {
+      setSubmitError("Не удалось отправить жалобу");
+      setSubmitState("error");
+    }
+  };
 
   const scrollTo = (id: string) => {
     setActiveNav(id);
@@ -305,29 +365,41 @@ export default function Index() {
             )}
 
             <div className="grid md:grid-cols-2 gap-5">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
-                  Steam ID нарушителя
+                  Ссылка на профиль нарушителя
                 </label>
-                <input
-                  type="text"
-                  placeholder="STEAM_0:1:12345678"
-                  value={reportForm.steamId}
-                  onChange={(e) => setReportForm({ ...reportForm, steamId: e.target.value })}
-                  className="w-full bg-[var(--bg-dark)] border border-[var(--border-subtle)] text-white px-4 py-3 text-sm font-mono focus:outline-none focus:border-[var(--red)] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
-                  Никнейм игрока
-                </label>
-                <input
-                  type="text"
-                  placeholder="Введите никнейм"
-                  value={reportForm.nick}
-                  onChange={(e) => setReportForm({ ...reportForm, nick: e.target.value })}
-                  className="w-full bg-[var(--bg-dark)] border border-[var(--border-subtle)] text-white px-4 py-3 text-sm focus:outline-none focus:border-[var(--red)] transition-colors"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="https://steamcommunity.com/id/username или /profiles/76561198..."
+                    value={reportForm.profileUrl}
+                    onChange={(e) => setReportForm({ ...reportForm, profileUrl: e.target.value })}
+                    className={`w-full bg-[var(--bg-dark)] border text-white px-4 py-3 text-sm focus:outline-none transition-colors pr-10
+                      ${resolveState === "error" ? "border-[var(--red)]" : targetProfile ? "border-green-600" : "border-[var(--border-subtle)] focus:border-[var(--red)]"}`}
+                  />
+                  {resolveState === "loading" && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border border-[var(--border-subtle)] border-t-[var(--red)] rounded-full animate-spin" />
+                  )}
+                  {targetProfile && resolveState !== "loading" && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">✓</div>
+                  )}
+                </div>
+                {resolveState === "error" && (
+                  <div className="text-xs text-[var(--red)] mt-1">{resolveError}</div>
+                )}
+                {targetProfile && (
+                  <div className="flex items-center gap-3 mt-2 p-3 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)]">
+                    <img src={targetProfile.avatar_url} alt={targetProfile.username} className="w-10 h-10 shrink-0" />
+                    <div>
+                      <div className="text-sm font-oswald font-semibold text-white">{targetProfile.username}</div>
+                      <div className="text-xs font-mono text-[var(--text-muted)]">{targetProfile.steam_id}</div>
+                    </div>
+                    <a href={targetProfile.profile_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-[var(--text-muted)] hover:text-white transition-colors">
+                      <Icon name="ExternalLink" size={13} />
+                    </a>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-oswald font-semibold tracking-widest text-[var(--text-muted)] uppercase mb-2">
@@ -375,15 +447,35 @@ export default function Index() {
               </div>
             </div>
 
+            {submitState === "success" && (
+              <div className="mt-5 flex items-center gap-3 p-4 border border-green-700 bg-[rgba(48,200,48,0.07)] text-green-400 text-sm font-oswald tracking-wide animate-fade-in">
+                <Icon name="CheckCircle" size={18} />
+                ЖАЛОБА №{Math.floor(Math.random() * 9000 + 1000)} ПРИНЯТА. Рассмотрение займёт до 72 часов.
+              </div>
+            )}
+            {submitState === "error" && (
+              <div className="mt-5 flex items-center gap-3 p-4 border border-[rgba(224,48,48,0.4)] bg-[rgba(224,48,48,0.05)] text-[var(--red)] text-sm">
+                <Icon name="AlertCircle" size={16} />
+                {submitError}
+              </div>
+            )}
+
             <div className="mt-6 flex items-center justify-between flex-wrap gap-4">
               <div className="text-xs text-[var(--text-muted)] flex items-center gap-2">
                 <Icon name="Lock" size={13} />
                 Данные защищены. Анонимная отправка невозможна.
               </div>
               {user ? (
-                <button className="btn-red px-8 py-3 text-sm flex items-center gap-2">
-                  <Icon name="Send" size={15} />
-                  Отправить жалобу
+                <button
+                  onClick={submitReport}
+                  disabled={!targetProfile || !reportForm.type || submitState === "loading"}
+                  className="btn-red px-8 py-3 text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submitState === "loading" ? (
+                    <><div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" /> Отправка...</>
+                  ) : (
+                    <><Icon name="Send" size={15} /> Отправить жалобу</>
+                  )}
                 </button>
               ) : (
                 <button onClick={login} className="btn-red px-8 py-3 text-sm flex items-center gap-2 opacity-80">
